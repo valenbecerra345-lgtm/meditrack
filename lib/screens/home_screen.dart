@@ -13,7 +13,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final prov = Provider.of<MedicamentoProvider>(context);
 
-    final medicamentosActivos = prov.medicamentos.where((m) => m.estado != 'Tomada').toList();
+    final medicamentosActivos = prov.medicamentosHoy.where((m) => m.estado != 'Tomada').toList();
 
     return SafeArea(
       child: Column(
