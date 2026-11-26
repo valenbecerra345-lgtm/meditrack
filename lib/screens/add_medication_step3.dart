@@ -33,6 +33,14 @@ class _AddMedicationStep3State extends State<AddMedicationStep3> {
   final DateTime _fechaFin = DateTime.now().add(const Duration(days: 7));
   bool _notificacionesActivas = true;
 
+  int _obtenerHorasIntervalo(String frecuencia) {
+    final match = RegExp(r'(\d+)').firstMatch(frecuencia);
+    if (match != null) {
+      return int.parse(match.group(1)!);
+    }
+    return 24;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -203,34 +211,46 @@ class _AddMedicationStep3State extends State<AddMedicationStep3> {
           ElevatedButton(
             onPressed: () async {
               final now = DateTime.now();
-              final proximaDosis = DateTime(
-                now.year,
-                now.month,
-                now.day,
+              final primeraDosis = DateTime(
+                _fechaInicio.year,
+                _fechaInicio.month,
+                _fechaInicio.day,
                 widget.horaInicio.hour,
                 widget.horaInicio.minute,
               );
 
-              final nuevoMedicamento = Medicamento(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
-                nombre: widget.nombre,
-                dosis: '${widget.dosis} ${widget.unidad}',
-                frecuencia: widget.frecuencia,
-                proximaDosis: proximaDosis,
-              );
+              final int intervaloHoras = _obtenerHorasIntervalo(widget.frecuencia);
+              final int totalDosis = widget.cantidadDosis > 0 ? widget.cantidadDosis : 1;
+              final int baseId = DateTime.now().millisecondsSinceEpoch;
+              final List<Medicamento> listaDosis = [];
 
-              Provider.of<MedicamentoProvider>(context, listen: false).agregarMedicamento(nuevoMedicamento);
+              for (int i = 0; i < totalDosis; i++) {
+                final fechaDosis = primeraDosis.add(Duration(hours: intervaloHoras * i));
+                final String dosisId = '${baseId}_$i';
 
-              if (_notificacionesActivas) {
-                await NotificationService().scheduleMedicationNotification(
-                  id: nuevoMedicamento.id.hashCode,
-                  title: '¡Hora de tu medicamento! 💊',
-                  body: 'Es momento de tomar ${widget.nombre} (${widget.dosis} ${widget.unidad})',
-                  scheduledDate: proximaDosis,
+                final med = Medicamento(
+                  id: dosisId,
+                  nombre: widget.nombre,
+                  dosis: '${widget.dosis} ${widget.unidad}',
+                  frecuencia: widget.frecuencia,
+                  proximaDosis: fechaDosis,
                 );
+
+                listaDosis.add(med);
+
+                if (_notificacionesActivas && fechaDosis.isAfter(now)) {
+                  await NotificationService().scheduleMedicationNotification(
+                    id: (baseId + i) % 2147483647,
+                    title: '¡Hora de tu medicamento! 💊',
+                    body: 'Es momento de tomar ${widget.nombre} (${widget.dosis} ${widget.unidad})',
+                    scheduledDate: fechaDosis,
+                  );
+                }
               }
 
-              
+              await Provider.of<MedicamentoProvider>(context, listen: false)
+                  .agregarListaMedicamentos(listaDosis);
+
               if (mounted) {
                 Navigator.pushReplacement(
                   context,

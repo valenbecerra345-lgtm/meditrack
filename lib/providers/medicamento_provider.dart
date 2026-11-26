@@ -7,17 +7,28 @@ class MedicamentoProvider extends ChangeNotifier {
 
   List<Medicamento> get medicamentos => _medicamentos;
 
+  List<Medicamento> get medicamentosHoy {
+    final hoy = DateTime.now();
+    return _medicamentos.where((m) =>
+      m.proximaDosis.year == hoy.year &&
+      m.proximaDosis.month == hoy.month &&
+      m.proximaDosis.day == hoy.day
+    ).toList();
+  }
+
   MedicamentoProvider() {
     cargarMedicamentos();
   }
 
   double get progresoHoy {
-    if (_medicamentos.isEmpty) return 0.0;
-    int tomados = _medicamentos.where((m) => m.estado == 'Tomada').length;
-    return tomados / _medicamentos.length;
+    final hoy = medicamentosHoy;
+    if (hoy.isEmpty) return 0.0;
+    int tomados = hoy.where((m) => m.estado == 'Tomada').length;
+    return tomados / hoy.length;
   }
-  int get cantidadTomados => _medicamentos.where((m) => m.estado == 'Tomada').length;
-  int get cantidadTotal => _medicamentos.length;
+
+  int get cantidadTomados => medicamentosHoy.where((m) => m.estado == 'Tomada').length;
+  int get cantidadTotal => medicamentosHoy.length;
 
   Future<void> cargarMedicamentos() async {
     _medicamentos = await DBHelper.obtenerMedicamentos();
@@ -26,7 +37,14 @@ class MedicamentoProvider extends ChangeNotifier {
 
   Future<void> agregarMedicamento(Medicamento medicamento) async {
     await DBHelper.insertarMedicamento(medicamento);
-    await cargarMedicamentos(); 
+    await cargarMedicamentos();
+  }
+
+  Future<void> agregarListaMedicamentos(List<Medicamento> lista) async {
+    for (final med in lista) {
+      await DBHelper.insertarMedicamento(med);
+    }
+    await cargarMedicamentos();
   }
 
   Future<void> eliminarMedicamento(String id) async {
